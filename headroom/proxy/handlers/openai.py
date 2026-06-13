@@ -2438,6 +2438,13 @@ class OpenAIHandlerMixin:
 
                         debug_dir = _hr_paths.debug_400_dir()
                         debug_dir.mkdir(parents=True, exist_ok=True)
+                        # Restrict to the owner: these dumps contain full
+                        # prompt/system-prompt content. On a shared host a
+                        # world-readable dir would leak it to other users.
+                        try:
+                            debug_dir.chmod(0o700)
+                        except OSError:
+                            pass
                         ts = datetime.now().strftime("%Y%m%d_%H%M%S")
                         debug_file = debug_dir / f"{ts}_{request_id}.json"
 

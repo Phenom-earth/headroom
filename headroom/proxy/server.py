@@ -928,9 +928,13 @@ class HeadroomProxy(
                     "hint=bridge_syncs_only_the_legacy_DB_today_per-project_bridge_follow-up_planned"
                 )
 
-        # Usage Reporter (license validation + phone-home for managed/enterprise)
+        # Usage Reporter (license validation + phone-home for managed/enterprise).
+        # Phenom-earth fork: also gate on is_telemetry_enabled() so the telemetry
+        # hard-disable actually covers this phone-home path (it POSTs the license
+        # key + aggregate usage to the cloud). With telemetry off, the reporter is
+        # never constructed/started; compression falls back to its default policy.
         self.usage_reporter: UsageReporter | None = None
-        if config.license_key:
+        if config.license_key and is_telemetry_enabled():
             from headroom.telemetry.reporter import UsageReporter
 
             self.usage_reporter = UsageReporter(
@@ -2078,10 +2082,13 @@ def create_app(config: ProxyConfig | None = None) -> FastAPI:
                 _upstream_check_cache["error"] = str(exc)
             _upstream_check_cache["expires_at"] = time.monotonic() + _UPSTREAM_CHECK_TTL
 
-    # CORS
+    # CORS — restrict to local origins. A wildcard (`allow_origins=["*"]` with
+    # `allow_credentials=True`) lets any website the developer visits read the
+    # proxy's content/stats endpoints cross-origin from the browser. The proxy is
+    # a local dev service, so only localhost origins are legitimate.
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
+        allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$",
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
@@ -2831,7 +2838,7 @@ def create_app(config: ProxyConfig | None = None) -> FastAPI:
 
         return proxy.metrics.savings_tracker.history_response(history_mode=history_mode)
 
-    @app.get("/transformations/feed")
+    @app.get("/transformations/feed", dependencies=[Depends(_require_loopback)])
     async def transformations_feed(limit: int = 20):
         """Get recent message transformations for the live feed.
 
@@ -2928,7 +2935,7 @@ def create_app(config: ProxyConfig | None = None) -> FastAPI:
         report = tracker.get_report()
         return report.to_dict()
 
-    @app.post("/cache/clear")
+    @app.post("/cache/clear", dependencies=[Depends(_require_loopback)])
     async def clear_cache():
         """Clear the response cache."""
         if proxy.cache:
@@ -2937,7 +2944,7 @@ def create_app(config: ProxyConfig | None = None) -> FastAPI:
         return {"status": "cache disabled"}
 
     # CCR (Compress-Cache-Retrieve) endpoints
-    @app.post("/v1/retrieve")
+    @app.post("/v1/retrieve", dependencies=[Depends(_require_loopback)])
     async def ccr_retrieve(request: Request):
         """Retrieve original content from CCR compression cache.
 
@@ -3277,7 +3284,7 @@ def create_app(config: ProxyConfig | None = None) -> FastAPI:
             status_code=404, detail=f"No TOIN pattern found with hash starting with: {hash_prefix}"
         )
 
-    @app.get("/v1/retrieve/{hash_key}")
+    @app.get("/v1/retrieve/{hash_key}", dependencies=[Depends(_require_loopback)])
     async def ccr_retrieve_get(hash_key: str, query: str | None = None):
         """GET version of CCR retrieve for easier testing."""
         store = get_compression_store()
@@ -3317,7 +3324,7 @@ def create_app(config: ProxyConfig | None = None) -> FastAPI:
             )
 
     # CCR Tool Call Handler - for agent frameworks to call when LLM uses headroom_retrieve
-    @app.post("/v1/retrieve/tool_call")
+    @app.post("/v1/retrieve/tool_call", dependencies=[Depends(_require_loopback)])
     async def ccr_handle_tool_call(request: Request):
         """Handle a CCR tool call from an LLM response.
 
@@ -3638,6 +3645,25 @@ def run_server(
         uvicorn_kwargs["factory"] = True
     else:
         app_target = create_app(config)
+
+    # Safe-by-default nudge: warn loudly if the proxy is about to listen on a
+    # non-loopback interface. Content/admin endpoints are loopback-guarded and
+    # the relay forwards the caller's own credentials upstream, but a non-loopback
+    # bind still exposes the relay + health/stats to the local network. Operators
+    # who do this should front it with their own auth / network controls.
+    try:
+        from headroom.proxy.loopback_guard import is_loopback_host as _is_loopback_host
+
+        if not _is_loopback_host(config.host):
+            logger.warning(
+                "event=proxy_bind_non_loopback host=%s port=%s "
+                "hint=proxy_reachable_off_localhost;_content/admin_endpoints_are_loopback_only_"
+                "but_the_relay_is_exposed;_add_auth_or_restrict_the_network_before_exposing",
+                config.host,
+                config.port,
+            )
+    except Exception:  # pragma: no cover - warning must never break startup
+        pass
 
     uvicorn.run(
         app_target,
