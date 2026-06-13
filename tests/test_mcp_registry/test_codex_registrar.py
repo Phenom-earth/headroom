@@ -29,14 +29,14 @@ def _spec(env: dict[str, str] | None = None) -> ServerSpec:
     )
 
 
-def _serena_spec() -> ServerSpec:
+def _sample_spec() -> ServerSpec:
     return ServerSpec(
-        name="serena",
+        name="sample-tool",
         command="uvx",
         args=(
             "--from",
-            "git+https://github.com/oraios/serena",
-            "serena",
+            "git+https://github.com/example/sample-tool",
+            "sample-tool",
             "start-mcp-server",
             "--project-from-cwd",
             "--context",
@@ -180,21 +180,21 @@ def test_register_includes_env_subtable(tmp_path: Path) -> None:
     }
 
 
-def test_register_headroom_and_serena_coexist(tmp_path: Path) -> None:
+def test_register_headroom_and_other_server_coexist(tmp_path: Path) -> None:
     reg = _make_registrar(tmp_path)
 
     assert reg.register_server(_spec()).status == RegisterStatus.REGISTERED
-    assert reg.register_server(_serena_spec()).status == RegisterStatus.REGISTERED
+    assert reg.register_server(_sample_spec()).status == RegisterStatus.REGISTERED
 
     text = _config_path(tmp_path).read_text()
     assert "[mcp_servers.headroom]" in text
-    assert "[mcp_servers.serena]" in text
+    assert "[mcp_servers.sample-tool]" in text
     assert "# --- Headroom MCP server ---" in text
-    assert "# --- Headroom MCP server: serena ---" in text
+    assert "# --- Headroom MCP server: sample-tool ---" in text
 
     parsed = tomllib.loads(text)
     assert parsed["mcp_servers"]["headroom"]["command"] == "headroom"
-    assert parsed["mcp_servers"]["serena"]["command"] == "uvx"
+    assert parsed["mcp_servers"]["sample-tool"]["command"] == "uvx"
 
 
 def test_register_omits_env_subtable_when_env_empty(tmp_path: Path) -> None:
@@ -288,17 +288,17 @@ def test_unregister_removes_marker_block(tmp_path: Path) -> None:
     assert "[other_section]" in text
 
 
-def test_unregister_serena_preserves_headroom_block(tmp_path: Path) -> None:
+def test_unregister_other_server_preserves_headroom_block(tmp_path: Path) -> None:
     reg = _make_registrar(tmp_path)
     reg.register_server(_spec())
-    reg.register_server(_serena_spec())
+    reg.register_server(_sample_spec())
 
-    assert reg.unregister_server("serena") is True
+    assert reg.unregister_server("sample-tool") is True
     text = _config_path(tmp_path).read_text()
     assert "[mcp_servers.headroom]" in text
-    assert "[mcp_servers.serena]" not in text
+    assert "[mcp_servers.sample-tool]" not in text
     assert "# --- Headroom MCP server ---" in text
-    assert "# --- Headroom MCP server: serena ---" not in text
+    assert "# --- Headroom MCP server: sample-tool ---" not in text
 
 
 def test_unregister_returns_false_when_no_block(tmp_path: Path) -> None:

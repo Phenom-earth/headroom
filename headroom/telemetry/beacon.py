@@ -69,9 +69,12 @@ def _build_pipeline_timing(stats: dict) -> dict[str, object]:
 
 
 def is_telemetry_enabled() -> bool:
-    """Check if telemetry is enabled (on by default, opt out with env var)."""
-    val = os.environ.get("HEADROOM_TELEMETRY", "on").lower().strip()
-    return val not in _OFF_VALUES
+    """Telemetry/analytics are hard-disabled in the Phenom-earth fork.
+
+    Always returns False so no usage beacon, UsageReporter, or aggregate
+    stats are ever collected or sent, regardless of HEADROOM_TELEMETRY.
+    """
+    return False
 
 
 def is_telemetry_warn_enabled() -> bool:
