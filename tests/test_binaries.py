@@ -206,6 +206,9 @@ def test_mirror_url_with_query_params_strips_them_from_download_filename(monkeyp
     """
     _set_platform(monkeypatch, sys_plat="darwin", machine="arm64")
     monkeypatch.setattr(binaries.shutil, "which", lambda _name: None)
+    # This test exercises mirror-URL filename handling, not the pin policy;
+    # the difft asset is unpinned, so opt into unpinned installs explicitly.
+    monkeypatch.setenv("HEADROOM_ALLOW_UNPINNED_BINARIES", "1")
     archive = _make_tar_gz({"difft": b"ok"})
     tokened_url = (
         "https://github.com/Wilfred/difftastic/releases/download/0.64.0/"
@@ -228,6 +231,8 @@ def test_mirror_url_with_query_params_strips_them_from_download_filename(monkeyp
 def test_fetch_extract_and_cache_tar_gz(monkeypatch, fake_urlopen, tmp_path):
     _set_platform(monkeypatch, sys_plat="darwin", machine="arm64")
     monkeypatch.setattr(binaries.shutil, "which", lambda _name: None)
+    # Mechanics test (extract + cache) with an unpinned asset — opt in.
+    monkeypatch.setenv("HEADROOM_ALLOW_UNPINNED_BINARIES", "1")
 
     payload = b"#!/bin/sh\necho fake-difft\n"
     archive = _make_tar_gz({"difft-0.64.0/difft": payload})
@@ -246,6 +251,8 @@ def test_fetch_extract_and_cache_tar_gz(monkeypatch, fake_urlopen, tmp_path):
 def test_fetch_extract_zip(monkeypatch, fake_urlopen):
     _set_platform(monkeypatch, sys_plat="win32", machine="AMD64")
     monkeypatch.setattr(binaries.shutil, "which", lambda _name: None)
+    # Mechanics test (zip extract) with an unpinned asset — opt in.
+    monkeypatch.setenv("HEADROOM_ALLOW_UNPINNED_BINARIES", "1")
     payload = b"MZfake"
     archive = _make_zip({"scc.exe": payload})
     url = "https://github.com/boyter/scc/releases/download/v3.5.0/scc_Windows_x86_64.zip"
@@ -273,6 +280,35 @@ def test_sha256_mismatch_raises_and_deletes(monkeypatch, fake_urlopen, tmp_path)
             binaries.resolve("difft")
     finally:
         asset["sha256"] = None  # restore
+
+
+def test_unpinned_binary_fails_closed_by_default(monkeypatch, fake_urlopen):
+    """Phenom-earth fork: an unpinned binary (sha256:None) must NOT install
+    unless HEADROOM_ALLOW_UNPINNED_BINARIES is explicitly set."""
+    _set_platform(monkeypatch, sys_plat="darwin", machine="arm64")
+    monkeypatch.setattr(binaries.shutil, "which", lambda _name: None)
+    monkeypatch.delenv("HEADROOM_ALLOW_UNPINNED_BINARIES", raising=False)
+
+    reg = binaries._registry()
+    asset = reg["tools"]["difft"]["assets"]["darwin-aarch64"]
+    assert asset["sha256"] is None  # precondition: registry asset is unpinned
+    fake_urlopen[asset["url"]] = _make_tar_gz({"difft": b"unverified"})
+
+    with pytest.raises(binaries.Sha256Mismatch):
+        binaries.resolve("difft")
+
+
+def test_unpinned_binary_installs_with_explicit_optin(monkeypatch, fake_urlopen):
+    """The HEADROOM_ALLOW_UNPINNED_BINARIES escape hatch restores the old behavior."""
+    _set_platform(monkeypatch, sys_plat="darwin", machine="arm64")
+    monkeypatch.setattr(binaries.shutil, "which", lambda _name: None)
+    monkeypatch.setenv("HEADROOM_ALLOW_UNPINNED_BINARIES", "1")
+
+    reg = binaries._registry()
+    asset = reg["tools"]["difft"]["assets"]["darwin-aarch64"]
+    fake_urlopen[asset["url"]] = _make_tar_gz({"difft": b"ok"})
+    path = binaries.resolve("difft")
+    assert path.read_bytes() == b"ok"
 
 
 def test_sha256_match_passes(monkeypatch, fake_urlopen):
@@ -323,6 +359,8 @@ def test_ensure_tools_partial_failure_proxy_still_starts(monkeypatch):
     """If one tool fails to fetch, others still install and ensure_tools returns."""
     _set_platform(monkeypatch, sys_plat="darwin", machine="arm64")
     monkeypatch.setattr(binaries.shutil, "which", lambda _name: None)
+    # Partial-failure resilience test with unpinned assets — opt in.
+    monkeypatch.setenv("HEADROOM_ALLOW_UNPINNED_BINARIES", "1")
 
     scc_asset = binaries._registry()["tools"]["scc"]["assets"]["darwin-aarch64"]
     scc_tar = _make_tar_gz({"scc": b"ok"})

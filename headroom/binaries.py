@@ -271,11 +271,24 @@ def _sha256_file(path: Path) -> str:
 
 def _verify_sha256(path: Path, expected: str | None) -> None:
     if not expected:
-        # Upstream release not SHA-pinned in registry. HTTPS + the GitHub CDN
-        # is the only integrity check. Log at INFO so verbose runs can see
-        # this state; `doctor` surfaces the same fact via `sha_pinned=False`.
-        logger.info("binary %s downloaded without sha256 pin (HTTPS trust only)", path.name)
-        return
+        # Upstream release not SHA-pinned in the registry. Phenom-earth fork:
+        # fail CLOSED. Executing a downloaded binary whose integrity rests on
+        # "HTTPS only" is a supply-chain exec risk (a compromised upstream
+        # release, or a redirect via HEADROOM_BINARIES_MIRROR, runs in a process
+        # holding live API keys). Operators who accept that risk can opt back in
+        # with HEADROOM_ALLOW_UNPINNED_BINARIES=1.
+        if os.environ.get("HEADROOM_ALLOW_UNPINNED_BINARIES") in ("1", "true", "yes"):
+            logger.warning(
+                "binary %s downloaded WITHOUT sha256 pin; executing anyway because "
+                "HEADROOM_ALLOW_UNPINNED_BINARIES is set (HTTPS trust only)",
+                path.name,
+            )
+            return
+        path.unlink(missing_ok=True)
+        raise Sha256Mismatch(
+            f"{path.name}: refusing to install an unpinned binary (no sha256 in registry). "
+            "Pin its sha256, or set HEADROOM_ALLOW_UNPINNED_BINARIES=1 to override."
+        )
     got = _sha256_file(path)
     if got.lower() != expected.lower():
         path.unlink(missing_ok=True)
