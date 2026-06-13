@@ -600,15 +600,17 @@ class TestGlobalTelemetryCollector:
             "will report enabled=true even when telemetry is supposed to be off."
         )
 
-    def test_headroom_telemetry_on_keeps_collector_enabled(self, monkeypatch):
-        """Sanity check: the explicit on/unset path leaves the collector enabled."""
+    def test_headroom_telemetry_on_stays_disabled_in_fork(self, monkeypatch):
+        """Phenom-earth fork: telemetry is hard-disabled — even an explicit
+        HEADROOM_TELEMETRY=on must NOT re-enable the collector
+        (is_telemetry_enabled() returns False unconditionally)."""
         reset_telemetry_collector()
         monkeypatch.delenv("HEADROOM_TELEMETRY_DISABLED", raising=False)
         monkeypatch.setenv("HEADROOM_TELEMETRY", "on")
 
         collector = get_telemetry_collector()
 
-        assert collector._config.enabled is True
+        assert collector._config.enabled is False
 
 
 class TestRetrievalStatsModel:

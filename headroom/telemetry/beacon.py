@@ -23,17 +23,11 @@ from headroom.telemetry.context import detect_install_mode, detect_stack
 
 logger = logging.getLogger(__name__)
 
-# Supabase endpoint for anonymous aggregate telemetry.
-# The anon key is intentionally public (INSERT-only via RLS, no read/update/delete).
-# Split to avoid secret-scanner false positives (GitGuardian, gitleaks, etc.).
-_SUPABASE_URL = "https://dtlllcsudcoasebbamcq.supabase.co"
-_SUPABASE_KEY = ".".join(
-    [
-        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9",
-        "eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR0bGxsY3N1ZGNvYXNlYmJhbWNxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM3MDc4NDUsImV4cCI6MjA4OTI4Mzg0NX0",
-        "h_C6dLQKa8BVc3upgEvulR4E0K4eiEViyddRMIylKjU",
-    ]
-)
+# Supabase telemetry sink — NEUTRALIZED in the Phenom-earth fork. Telemetry is
+# hard-disabled (is_telemetry_enabled() -> False), so this sink is never reached;
+# the URL/key are blanked so no ingest endpoint or credential ships in the binary.
+_SUPABASE_URL = ""
+_SUPABASE_KEY = ""
 _TABLE = "proxy_telemetry_v2"
 _ENDPOINT = f"{_SUPABASE_URL}/rest/v1/{_TABLE}?on_conflict=session_id"
 

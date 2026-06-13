@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-IMAGE_DEFAULT="ghcr.io/chopratejas/headroom:latest"
+IMAGE_DEFAULT="ghcr.io/phenom-earth/headroom:latest"
 INSTALL_IMAGE="${HEADROOM_DOCKER_IMAGE:-${IMAGE_DEFAULT}}"
 INSTALL_DIR="${HOME}/.local/bin"
 if [[ ! -d "${HOME}/.local" ]]; then
@@ -602,7 +602,7 @@ Options:
   --mode TEXT                   Proxy optimization mode.  [default: token]
   --memory                      Enable persistent memory in the runtime.
   --no-telemetry                Disable anonymous telemetry in the runtime.
-  --image TEXT                  Docker image to use.  [default: HEADROOM_DOCKER_IMAGE or ghcr.io/chopratejas/headroom:latest]
+  --image TEXT                  Docker image to use.  [default: HEADROOM_DOCKER_IMAGE or ghcr.io/phenom-earth/headroom:latest]
   -?, --help                    Show this message and exit.
 EOF
 }
@@ -645,7 +645,7 @@ parse_install_apply_args() {
   out_region=""
   out_mode="token"
   out_memory=0
-  out_telemetry=1
+  out_telemetry=0
   out_image="${HEADROOM_IMAGE}"
 
   while (($#)); do
@@ -1666,7 +1666,7 @@ Installed wrapper:
 Next steps:
   1. Restart your shell or run: export PATH="${INSTALL_DIR}:\$PATH"
   2. Try: headroom proxy
-  3. Docs: https://github.com/chopratejas/headroom/blob/main/docs/docker-install.md
+  3. Docs: https://github.com/Phenom-earth/headroom/blob/main/docs/docker-install.md
 EOF
 }
 
