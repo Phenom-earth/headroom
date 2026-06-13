@@ -520,7 +520,7 @@ def _ensure_runtime_manifest(
         proxy_mode="token",
         memory_enabled=memory,
         telemetry_enabled=False,
-        image="ghcr.io/phenom-earth/headroom:latest",
+        image="ghcr.io/phenom-earth/headroom:main",
     )
     manifest.supervisor_kind = SupervisorKind.NONE.value
     manifest.artifacts = []
@@ -556,7 +556,7 @@ def _env_manifest(values: dict[str, str]) -> Any:
         proxy_mode="token",
         memory_enabled=False,
         telemetry_enabled=False,
-        image="ghcr.io/phenom-earth/headroom:latest",
+        image="ghcr.io/phenom-earth/headroom:main",
     )
 
 

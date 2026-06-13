@@ -2,7 +2,9 @@
 
 set -euo pipefail
 
-IMAGE_DEFAULT="ghcr.io/phenom-earth/headroom:latest"
+# Fork default tag is `main` (the fork's docker.yml tags by branch + SHA, not
+# `latest`). Pin to `ghcr.io/phenom-earth/headroom:sha-<commit>` for production.
+IMAGE_DEFAULT="ghcr.io/phenom-earth/headroom:main"
 INSTALL_IMAGE="${HEADROOM_DOCKER_IMAGE:-${IMAGE_DEFAULT}}"
 INSTALL_DIR="${HOME}/.local/bin"
 if [[ ! -d "${HOME}/.local" ]]; then
@@ -602,7 +604,7 @@ Options:
   --mode TEXT                   Proxy optimization mode.  [default: token]
   --memory                      Enable persistent memory in the runtime.
   --no-telemetry                Disable anonymous telemetry in the runtime.
-  --image TEXT                  Docker image to use.  [default: HEADROOM_DOCKER_IMAGE or ghcr.io/phenom-earth/headroom:latest]
+  --image TEXT                  Docker image to use.  [default: HEADROOM_DOCKER_IMAGE or ghcr.io/phenom-earth/headroom:main]
   -?, --help                    Show this message and exit.
 EOF
 }
